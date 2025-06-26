@@ -76,7 +76,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("❌ Belum", callback_data=f"status_{task}_none"),
             ]
         ]
-        await query.edit_message_text(f"🔗 Link: {link}
+        await query.edit_message_text(f"🔗 Link: {link}\\n\\n📌 Status task: {task}", reply_markup=InlineKeyboardMarkup(status_buttons))
+
 
 📌 Status task: {task}", reply_markup=InlineKeyboardMarkup(status_buttons))
     elif data.startswith("status_"):

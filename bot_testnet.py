@@ -79,7 +79,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"🔗 Link: {link}\\n\\n📌 Status task: {task}", reply_markup=InlineKeyboardMarkup(status_buttons))
 
 
-📌 Status task: {task}", reply_markup=InlineKeyboardMarkup(status_buttons))
+await query.edit_message_text(f"🔗 Link: {link}\\n\\n📌 Status task: {task}", reply_markup=InlineKeyboardMarkup(status_buttons))
+
     elif data.startswith("status_"):
         parts = data.split("_")
         task = "_".join(parts[1:-1])

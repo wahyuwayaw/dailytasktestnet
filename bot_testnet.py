@@ -1,15 +1,15 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, ApplicationBuilder
-from apscheduler.schedulers.background import BackgroundScheduler
-from datetime import datetime
+from telegram.ext import (
+    Application, CommandHandler, CallbackQueryHandler, ContextTypes
+)
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import time
 import asyncio
 import sqlite3
 import os
 
-# === BOT TOKEN ===
 BOT_TOKEN = os.getenv("BOT_TOKEN") or "8150499936:AAGddGk-KJ8ACY_ssptD7OCE54_EJdh6DEg"
 
-# === Default testnet list ===
 default_task_links = {
     "Fraction AI": "https://t.me/airdropfind/101646",
     "KiteAI": "https://t.me/airdropfind/102772",
@@ -36,7 +36,6 @@ default_task_links = {
     "PHAROS": "https://t.me/airdropfind/108028"
 }
 
-# === Database setup ===
 conn = sqlite3.connect('progress.db', check_same_thread=False)
 c = conn.cursor()
 c.execute('CREATE TABLE IF NOT EXISTS progress (user_id INTEGER, task TEXT, status TEXT)')
@@ -52,7 +51,6 @@ def get_all_tasks(user_id):
     all_tasks.update(custom)
     return all_tasks
 
-# === Commands ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     task_links = get_all_tasks(user_id)
@@ -60,7 +58,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton(task, callback_data=f"view_{task}")]
         for task in task_links.keys()
     ]
-    await update.message.reply_text("\ud83d\udccb Pilih task untuk lihat link & ubah status:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("📋 Pilih task untuk lihat link & ubah status:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -74,12 +72,15 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         link = task_links.get(task, "Tidak ditemukan.")
         status_buttons = [
             [
-                InlineKeyboardButton("\u2705 Selesai", callback_data=f"status_{task}_done"),
-                InlineKeyboardButton("\u2699\ufe0f Progress", callback_data=f"status_{task}_progress"),
-                InlineKeyboardButton("\u274c Belum", callback_data=f"status_{task}_none"),
+                InlineKeyboardButton("✅ Selesai", callback_data=f"status_{task}_done"),
+                InlineKeyboardButton("⚙️ Progress", callback_data=f"status_{task}_progress"),
+                InlineKeyboardButton("❌ Belum", callback_data=f"status_{task}_none"),
             ]
         ]
-        await query.edit_message_text(f"\ud83d\udd17 Link: {link}\n\n\ud83d\udccc Status task: {task}", reply_markup=InlineKeyboardMarkup(status_buttons))
+        await query.edit_message_text(
+            text=f"🔗 Link: {link}\n\n📌 Status task: {task}",
+            reply_markup=InlineKeyboardMarkup(status_buttons)
+        )
 
     elif data.startswith("status_"):
         parts = data.split("_")
@@ -87,19 +88,19 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         status = parts[-1]
         c.execute("REPLACE INTO progress (user_id, task, status) VALUES (?, ?, ?)", (user_id, task, status))
         conn.commit()
-        await query.edit_message_text(f"\u2705 Status task *{task}* diset ke: {status.upper()}", parse_mode="Markdown")
+        await query.edit_message_text(f"✅ Status task *{task}* diset ke: {status.upper()}", parse_mode="Markdown")
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     all_tasks = get_all_tasks(user_id)
     c.execute("SELECT task, status FROM progress WHERE user_id=?", (user_id,))
     rows = dict(c.fetchall())
-    msg = "**\ud83d\udcca Status Task Kamu:**\n\n"
+    msg = "**📊 Status Task Kamu:**\n\n"
     for task in all_tasks:
         st = rows.get(task, "none")
-        emoji = {"done": "\u2705", "progress": "\u2699\ufe0f", "none": "\u274c"}.get(st, "\u274c")
+        emoji = {"done": "✅", "progress": "⚙️", "none": "❌"}.get(st, "❌")
         msg += f"{emoji} {task}\n"
-    await update.message.reply_text(msg, parse_mode="Markdown", disable_web_page_preview=True)
+    await update.message.reply_text(msg, parse_mode="Markdown")
 
 async def tambah_testnet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -110,7 +111,7 @@ async def tambah_testnet(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name, link = [s.strip() for s in msg.split("|", 1)]
     c.execute("INSERT INTO task_links_custom (user_id, task, link) VALUES (?, ?, ?)", (user_id, name, link))
     conn.commit()
-    await update.message.reply_text(f"\u2705 Testnet `{name}` berhasil ditambahkan!", parse_mode="Markdown")
+    await update.message.reply_text(f"✅ Testnet `{name}` berhasil ditambahkan!", parse_mode="Markdown")
 
 async def setting(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
@@ -121,7 +122,7 @@ async def setting(update: Update, context: ContextTypes.DEFAULT_TYPE):
     task, delay = args[0], int(args[1])
     c.execute("REPLACE INTO delay_settings (user_id, task, delay) VALUES (?, ?, ?)", (user_id, task, delay))
     conn.commit()
-    await update.message.reply_text(f"\u23f1\ufe0f Delay untuk `{task}` disetel ke {delay} detik.", parse_mode="Markdown")
+    await update.message.reply_text(f"⏱️ Delay untuk `{task}` disetel ke {delay} detik.", parse_mode="Markdown")
 
 async def notif_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -132,14 +133,13 @@ async def notif_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = cmd[1].lower()
     if action == "on":
         c.execute("INSERT OR IGNORE INTO notif (user_id) VALUES (?)", (user_id,))
-        conn.commit()
-        await update.message.reply_text("\u2705 Notifikasi harian diaktifkan.")
+        await update.message.reply_text("✅ Notifikasi harian diaktifkan.")
     elif action == "off":
         c.execute("DELETE FROM notif WHERE user_id=?", (user_id,))
-        conn.commit()
-        await update.message.reply_text("\u274c Notifikasi harian dimatikan.")
+        await update.message.reply_text("❌ Notifikasi harian dimatikan.")
+    conn.commit()
 
-async def kirim_notif():
+async def kirim_notif(app: Application):
     c.execute("SELECT user_id FROM notif")
     users = c.fetchall()
     for (user_id,) in users:
@@ -148,25 +148,29 @@ async def kirim_notif():
         done = {task for task, status in c.fetchall() if status == "done"}
         pending = [t for t in all_tasks if t not in done]
         if pending:
-            pesan = "\ud83d\udccc *Reminder Testnet Harian*\n\nTask belum selesai:\n" + "\n".join(f"\u274c {t}" for t in pending)
+            pesan = "📌 *Reminder Testnet Harian*\n\nTask belum selesai:\n" + "\n".join(f"❌ {t}" for t in pending)
         else:
-            pesan = "\ud83c\udf89 Semua testnet sudah kamu selesaikan hari ini, mantap!"
+            pesan = "🎉 Semua testnet sudah kamu selesaikan hari ini, mantap!"
         try:
             await app.bot.send_message(chat_id=user_id, text=pesan, parse_mode="Markdown")
         except:
             pass
 
-# === Scheduler untuk notifikasi ===
-scheduler = BackgroundScheduler()
-scheduler.add_job(lambda: asyncio.run(kirim_notif()), 'cron', hour=9, minute=0)
-scheduler.start()
+async def main():
+    app = Application.builder().token(BOT_TOKEN).build()
 
-# === Jalankan bot ===
-app = ApplicationBuilder().token(BOT_TOKEN).build()
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CommandHandler("status", status))
-app.add_handler(CommandHandler("tambahtestnet", tambah_testnet))
-app.add_handler(CommandHandler("setting", setting))
-app.add_handler(CommandHandler("notifikasi", notif_cmd))
-app.add_handler(CallbackQueryHandler(button))
-app.run_polling()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("status", status))
+    app.add_handler(CommandHandler("tambahtestnet", tambah_testnet))
+    app.add_handler(CommandHandler("setting", setting))
+    app.add_handler(CommandHandler("notifikasi", notif_cmd))
+    app.add_handler(CallbackQueryHandler(button))
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(lambda: asyncio.create_task(kirim_notif(app)), 'cron', hour=9, minute=0)
+    scheduler.start()
+
+    await app.run_polling()
+
+if __name__ == "__main__":
+    asyncio.run(main())
